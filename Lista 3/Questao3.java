@@ -44,7 +44,6 @@ class SafeList {
 		this.pergs = new ArrayList<Pergunta>();
 		this.l = new ReentrantLock();
 		this.c = l.newCondition();
-		this.n = 0;
 		this.max = max;
 		this.isFull = false;
 		this.isEmpty = true;
@@ -60,14 +59,14 @@ class SafeList {
 	 */
 	public void prod(Pergunta p){
 		l.lock();
-		System.out.println("perguntar");
+		//System.out.println("perguntar");
 		try {
 			while (isFull)
 				try {
 					c.await();
 				} catch (InterruptedException ie) {}
 			pergs.add(p);
-			System.out.println("perguntei: " + p.perg);
+			//System.out.println("perguntei: " + p.perg);
 			++n;
 			if (n==max) isFull = true;
 			if (pergs.size()==1) c.signalAll();
@@ -91,16 +90,16 @@ class SafeList {
 			}
 			if (sofar % 2 == 0 && sofar > 0){
 				try {
-					System.out.println("duas perguntas, vou encher caneca");
+					//System.out.println("duas perguntas, vou encher a caneca");
 					Thread.sleep(timeEncher);
 				} catch (InterruptedException ie) {}
 			}
 			Pergunta aux = pergs.remove(0);
 			try {
-				System.out.println("beber agua");
+				//System.out.println("beber agua e responder");
 				Thread.sleep(aux.time + timeBeber);
 			} catch (InterruptedException e) {}
-			System.out.println("respondi: " + aux.perg);
+			//System.out.println("respondi: " + aux.perg);
 			++sofar;
 			--n;
 			if (n < max) c.signalAll();
@@ -116,10 +115,9 @@ class Aluno extends Thread {
 	SafeList l;
 	
 	Aluno(int id, SafeList l, ArrayList<Pergunta> pergs){
-		this.pergs = new ArrayList<Pergunta>(); 
+		this.pergs = pergs;
 		this.id = id; 
 		this.l = l;
-		this.pergs = pergs;
 		}
 	
 	public void run() {
@@ -155,7 +153,7 @@ public class Questao3 {
 		final SafeList l = new SafeList(numAlunos, tCaneca, tBeber, maxPergs);
 		ArrayList<Aluno> alunos = new ArrayList<Aluno>();
 		ArrayList<Pergunta> auxPergs;
-		int nPergs, timePerg;
+		int nPergs, timePerg; String perg; Scanner str = new Scanner(System.in);
 		for (int i=0; i<numAlunos; ++i){
 			System.out.println("Aluno " + i + "-- nPergs: ");
 			nPergs = in.nextInt();
@@ -163,10 +161,22 @@ public class Questao3 {
 			for (int j=0; j<nPergs; ++j){
 				System.out.println("Tempo pergunta: ");
 				timePerg = in.nextInt();
-				auxPergs.add(new Pergunta(timePerg));
+				System.out.println("Pergunta: ");
+				perg = str.nextLine();
+				auxPergs.add(new Pergunta(perg, timePerg));
 			}
 			alunos.add(new Aluno(i, l, auxPergs));
 		}
+		/*
+		for (int i=0; i<400; ++i){
+			auxPergs = new ArrayList<Pergunta>();
+			for (int j=0; j<3; ++j){
+				auxPergs.add(new Pergunta(100));
+			}
+			alunos.add(new Aluno((i+1), l, auxPergs));
+		}
+		 */
+		str.close();
 		in.close();
 		Long begin = System.currentTimeMillis();
 		Professor prof = new Professor(40, l);
