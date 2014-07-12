@@ -2,3 +2,6 @@ Anexos/
 Aulas/
 Exercícios\ Aulas/
 Provas/
+*.hi
+*.o
+*.exe
