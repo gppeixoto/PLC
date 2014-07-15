@@ -1,77 +1,71 @@
+import Control.Parallel
 import Control.Concurrent
-import Control.Concurrent.STM as Concurrent
+import Control.Concurrent.MVar
 import System.Random as Random
 
 {-
-Tem que usar 3 TVars
-uma pra acordar o barbeiro
-uma pra cadeira de espera(s)
-uma pra cadeira do barbeiro
--}
-
-waitCut = 5000000
-
-type BarberTVar = TVar Int      --working:1 / sleeping:0
-type ChairTVar = TVar Int       --busy/free
-type FreeSeats = MVar Int       --how many free seats are left
-type ID = Int
-
-customer :: ID -> BarberTVar -> ChairTVar -> MVar Int -> IO()
-customer id barb cadeiras mv = do {
-        v <- atomically (readTVar cadeiras); --v contem o numero de cadeiras livres, o numero total de cadeiras é 5
-        if (v == 0) --se n tem mais nenhuma cadeira vazia
-        then putStrLn $ "Thread " ++ (show id) ++ " leaving, no seats left." --sai do barbershop
-        else do { --aqui tem alguma cadeira livre
-            x <- takeMVar mv; --dimnui em 1 o numero de clientes atendidos
-            putMVar mv (x-1);
-            atomically (writeTVar cadeiras (v-1)); --senta em uma cadeira, uma cadeira livre a menos
-            atomically (do { 
-                            busy <- readTVar barb; --ve se o barbeiro ta dormindo ou acordado
-                            if (busy == 1) then retry else return (); --se tiver ocupado fica em busy wait
-                            } --o return () serve p nao fazer nada e ir pra threadDelay
-                );
-            putStrLn $ "Thread " ++ (show id) ++ " getting a haircut."; --cortando o cabelo...
-            threadDelay $ waitCut --espera o tempo de corte
+Movement rules: a random number will determinate (as it follows) which shells the octopus is going to manipulate:
+    1: LeftShell swaps with the MiddleShell
+    2: MiddleShell swaps with the RightShell
+    3: RightShell swaps with the LeftShell.-}
+type Id = Int
+octopus :: Id -> MVar Int -> MVar Int -> MVar Int -> MVar Int -> IO()
+octopus id fimVar lShell mShell rShell = do {
+    fim <- takeMVar fimVar;
+    if (fim <= 0)
+        then
+            putMVar fimVar (-1);
+    else do {
+        move <- randomRIO(1::Int , 3::Int);
+        putStrLn $ "The pair of tentacles (" ++ (show id) ++ ") is going to make a move!";
+        case move of {
+            1 -> do {
+                putStrLn $ "Swapped the left and middle shells";
+                left <- takeMVar lShell;
+                middle <- takeMVar mShell;
+                putMVar lShell middle;
+                putMVar mShell left;
+            };
+            2 -> do {
+                putStrLn $ "Swapped the middle and right shells";
+                middle <- takeMVar mShell;
+                right <- takeMVar rShell;
+                putMVar mShell right;
+                putMVar rShell middle;
+            };
+            3 -> do {
+                putStrLn $ "Swapped the left and right shells";
+                left <- takeMVar lShell;
+                right <- takeMVar rShell;
+                putMVar lShell right;
+                putMVar rShell left;
+            };
         };
-        --x <- takeMVar mv; --dimnui em 1 o numero de clientes atendidos
-        --putMVar mv (x-1)
-    }
-
-barber :: ID -> BarberTVar -> ChairTVar -> MVar Int -> IO()
-barber id barb cadeiras mv = do {
-    atomically (   --monad STM
-            do
-                v <- readTVar cadeiras --ve o numero de cadeiras vazias
-                if (v == numeroCadeiras) --se todas as cadeiras estao vazias
-                then do {writeTVar barb 0; retry} --bota que ta desocupado, tenta de novo
-                else do { --tem uma cadeira nao vazia --> tem um cliente esperando
-                        writeTVar barb 1; --fica ocupado pra cortar o cabelo
-                        --writeTVar cadeiras (v+1);
-                    }
-        );
-    --monad IO
-    threadDelay waitCut; --cortando o cabelo...
-    atomically (do { --nesse ponto ele ja cortou o cabelo
-        v <- readTVar cadeiras; --um cliente foi atendido
-        writeTVar cadeiras (v+1); --entao tem uma cadeira vazia
-        writeTVar barb 0; --e ele tá desocupado
-        });
-    --debug--------------------------------
-    --num <- atomically (readTVar cadeiras);
-    --num2 <- atomically (readTVar barb);
-    --putStrLn $ "barber cadeiras: " ++ (show num) ++ " barb: " ++ (show num2);
-    putStrLn $ "Acabei um corte.";
-    --debug--------------------------------
-    x <- takeMVar mv; --diminui em 1 o número de clientes atendidos
-    putMVar mv (x-1);
-    if (x == 0) --se chegou em 0, acabou o servico
-    then putStrLn $ "Atendi todos os meus clientes hoje!" --return () --e faz nada
-    else barber id barb cadeiras mv --senao, espera ate que complete o numero de clientes atendidos
+    putMVar fimVar (fim-1);
+    octopus id fimVar lShell mShell rShell;
+    };
 }
 
-numeroCadeiras = 5
-numeroClientes = 15
+{-
+The user inputs an integer, representing one of the three shells. It returns
+true if the selected shell contains the stone, otherwise, returns false.-}
+makeGuess :: Int -> MVar Int -> MVar Int -> MVar Int -> IO Bool
+makeGuess n lShell mShell rShell = do {
+    left <- takeMVar lShell;
+    middle <- takeMVar mShell;
+    right <- takeMVar rShell;
+    if (n==1) then 
+        if (left == 1) then return True else return False
+    else
+        if (n==2) then
+            if (middle == 1) then return True else return False
+        else
+            if (right == 1) then return True else return False;
+}
 
+{-
+This auxiliar function makes the main thread wait in busy wait
+until its children threads conclude their work.-}
 waitThreads :: MVar Int -> IO()
 waitThreads mv = do {
     f <- takeMVar mv;
@@ -84,22 +78,22 @@ waitThreads mv = do {
         return ()
 }
 
-
-incomingCustomers :: ID -> BarberTVar -> ChairTVar -> MVar Int -> IO()
-incomingCustomers 0 _ _ _ = return ()
-incomingCustomers n tvarBarbeiro tvarCadeiras mvarClientes = do {
-    forkIO $ customer n tvarBarbeiro tvarCadeiras mvarClientes;
-    putStrLn $ "Thread " ++ (show n) ++ " walking into the barbershop.";
-    delay <- Random.randomRIO(1000000, 3000000);
-    threadDelay delay;
-    incomingCustomers (n-1) tvarBarbeiro tvarCadeiras mvarClientes
-}
-
 main :: IO()
 main = do {
-    mvarClientes <- newMVar numeroClientes;
-    tvarCadeiras <- atomically (newTVar numeroCadeiras);
-    tvarBarbeiro <- atomically (newTVar 0);
-    forkIO $ barber 40 tvarBarbeiro tvarCadeiras mvarClientes;
-    incomingCustomers numeroClientes tvarBarbeiro tvarCadeiras mvarClientes;
+    putStrLn $ "Input the number of movements: ";
+    input <- getLine;
+    fimVar <- newMVar $ (read input :: Int);
+    lShell <- newMVar 0;
+    mShell <- newMVar 1;
+    rShell <- newMVar 0;
+    forkIO $ octopus 1 fimVar lShell mShell rShell;
+    forkIO $ octopus 2 fimVar lShell mShell rShell;
+    forkIO $ octopus 3 fimVar lShell mShell rShell;
+    forkIO $ octopus 4 fimVar lShell mShell rShell;
+    waitThreads fimVar;
+    putStrLn $ "Make your guess (1 - Left, 2 - Middle, 3 - Right): ";
+    guess <- getLine;
+    win <- makeGuess (read input :: Int) lShell mShell rShell;
+    if (win == True) then putStrLn "You won the game! :-) " else putStrLn "You lost the game! :-(";
+    {-The Game. You just lost it.-}
 }

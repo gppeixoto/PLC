@@ -1,4 +1,4 @@
-
+    
 import Control.Parallel
 import Control.Concurrent
 import Control.Concurrent.MVar
@@ -63,7 +63,7 @@ work arg mvar toWait = do {
 type NumThreads = Int
 
 {-
-Auxiliar main fuction. Forces the main thread to wait until the
+Auxiliar fuction. Forces the main thread to wait until the
 children threads are done with their work, by keeping the main 
 thread in busy wait.-}
 waitThreads :: MVar Int -> NumThreads -> IO()
@@ -93,6 +93,7 @@ main = do {
     mvar3 <- newEmptyMVar;
     mvar4 <- newEmptyMVar;
     newList <- return $ splitInFour.getTwoLists $ list;
+    --newList <- return $ splitInFour.getTwoLists $ [1..10000000];
     forkIO $ work (fst.fst $ newList) mvar1 toWait;
     forkIO $ work (fst.snd $ newList) mvar2 toWait;
     forkIO $ work (snd.fst $ newList) mvar3 toWait;
@@ -104,4 +105,5 @@ main = do {
     l4 <- takeMVar mvar4;
     finalList <- return $ merge_n [l1,l2,l3,l4]; --here we merge them.
     putStrLn $ "Your sorted list: " ++ (show $ finalList)
+    --putStrLn $ show $ length finalList
 }
