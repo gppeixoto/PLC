@@ -17,13 +17,11 @@ type FreeSeats = MVar Int       --how many free seats are left
 type ID = Int
 
 customer :: ID -> BarberTVar -> ChairTVar -> MVar Int -> IO()
-customer id barb cadeiras mv = do {
+customer id barb cadeiras mv = do { 
         v <- atomically (readTVar cadeiras); --v contem o numero de cadeiras livres, o numero total de cadeiras é 5
         if (v == 0) --se n tem mais nenhuma cadeira vazia
         then putStrLn $ "Thread " ++ (show id) ++ " leaving, no seats left." --sai do barbershop
         else do { --aqui tem alguma cadeira livre
-            x <- takeMVar mv; --dimnui em 1 o numero de clientes atendidos
-            putMVar mv (x-1);
             atomically (writeTVar cadeiras (v-1)); --senta em uma cadeira, uma cadeira livre a menos
             atomically (do { 
                             busy <- readTVar barb; --ve se o barbeiro ta dormindo ou acordado
@@ -64,7 +62,7 @@ barber id barb cadeiras mv = do {
     --debug--------------------------------
     x <- takeMVar mv; --diminui em 1 o número de clientes atendidos
     putMVar mv (x-1);
-    if (x == 0) --se chegou em 0, acabou o servico
+    if (x == 1) --se chegou em 0, acabou o servico
     then putStrLn $ "Atendi todos os meus clientes hoje!" --return () --e faz nada
     else barber id barb cadeiras mv --senao, espera ate que complete o numero de clientes atendidos
 }
@@ -88,18 +86,27 @@ waitThreads mv = do {
 incomingCustomers :: ID -> BarberTVar -> ChairTVar -> MVar Int -> IO()
 incomingCustomers 0 _ _ _ = return ()
 incomingCustomers n tvarBarbeiro tvarCadeiras mvarClientes = do {
-    forkIO $ customer n tvarBarbeiro tvarCadeiras mvarClientes;
-    putStrLn $ "Thread " ++ (show n) ++ " walking into the barbershop.";
-    delay <- Random.randomRIO(1000000, 3000000);
-    threadDelay delay;
-    incomingCustomers (n-1) tvarBarbeiro tvarCadeiras mvarClientes
+    continue <- takeMVar mvarClientes;
+    putMVar mvarClientes continue;
+    if (continue > 0) then
+        do {
+            forkIO $ customer n tvarBarbeiro tvarCadeiras mvarClientes;
+            putStrLn $ "Thread " ++ (show n) ++ " walking into the barbershop.";
+            delay <- Random.randomRIO(1000000, 3000000);
+            threadDelay delay;
+            incomingCustomers (n-1) tvarBarbeiro tvarCadeiras mvarClientes
+        }
+    else return ();
 }
 
 main :: IO()
 main = do {
-    mvarClientes <- newMVar numeroClientes;
+    putStrLn "How many customers will the barber cut today: ";
+    num <- getLine;
+    n <- return (read num :: Int); 
+    mvarClientes <- newMVar n;
     tvarCadeiras <- atomically (newTVar numeroCadeiras);
     tvarBarbeiro <- atomically (newTVar 0);
     forkIO $ barber 40 tvarBarbeiro tvarCadeiras mvarClientes;
-    incomingCustomers numeroClientes tvarBarbeiro tvarCadeiras mvarClientes;
+    incomingCustomers 1000000    tvarBarbeiro tvarCadeiras mvarClientes;
 }
