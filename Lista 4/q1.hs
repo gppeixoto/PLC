@@ -4,6 +4,8 @@ import Control.Concurrent
 import Control.Concurrent.MVar
 
 -------------------------------------------------
+------------Testes no final do código------------
+-------------------------------------------------
 ------------------ SEQUENTIAL -------------------
 -------------------------------------------------
 
@@ -93,7 +95,7 @@ main = do {
     mvar3 <- newEmptyMVar;
     mvar4 <- newEmptyMVar;
     newList <- return $ splitInFour.getTwoLists $ list;
-    --newList <- return $ splitInFour.getTwoLists $ [1..10000000];
+    --newList <- return $ splitInFour.getTwoLists $ [1..1000000];
     forkIO $ work (fst.fst $ newList) mvar1 toWait;
     forkIO $ work (fst.snd $ newList) mvar2 toWait;
     forkIO $ work (snd.fst $ newList) mvar3 toWait;
@@ -107,3 +109,43 @@ main = do {
     putStrLn $ "Your sorted list: " ++ (show $ finalList)
     --putStrLn $ show $ length finalList
 }
+
+{-
+Versão sequencial:
+*Main> length $ mergeSort [1..500000]
+500000
+(7.72 secs, 1696971288 bytes)
+
+*Main> length $ mergeSort [1..700000]
+700000
+(10.86 secs, 2401833552 bytes)
+
+*Main> length $ mergeSort [1..1000000]
+1000000
+(16.03 secs, 3552689096 bytes)
+
+Versão paralela:
+> C:\Users\Guilherme\...\Lista 4>q1.exe +RTS -N4 -s
+500000
+  INIT    time    0.00s  (  0.00s elapsed)
+  MUT     time    0.66s  (  0.41s elapsed)
+  GC      time    1.67s  (  0.48s elapsed)
+  EXIT    time    0.00s  (  0.00s elapsed)
+  Total   time    2.33s  (  0.90s elapsed)
+
+> C:\Users\...\Lista 4>q1.exe +RTS -N4 -s
+700000
+  INIT    time    0.00s  (  0.00s elapsed)
+  MUT     time    1.28s  (  0.60s elapsed)
+  GC      time    2.36s  (  0.75s elapsed)
+  EXIT    time    0.00s  (  0.00s elapsed)
+  Total   time    3.64s  (  1.36s elapsed)
+
+C:\Users\...\Lista 4>q1.exe +RTS -N4 -s
+1000000
+  INIT    time    0.00s  (  0.00s elapsed)
+  MUT     time    1.55s  (  0.86s elapsed)
+  GC      time    3.39s  (  1.04s elapsed)
+  EXIT    time    0.00s  (  0.00s elapsed)
+  Total   time    4.94s  (  1.90s elapsed)
+-}
