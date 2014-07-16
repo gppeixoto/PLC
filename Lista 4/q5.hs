@@ -1,10 +1,12 @@
 import Control.Concurrent
 import Control.Concurrent.STM as Concurrent
 import System.Random as Random
+waitcut = 2000000
 
-type BarberTVar = TVar Int      --working:1 / sleeping:0
-type ChairTVar = TVar Int       --busy/free
-type FreeSeats = MVar Int       --how many free seats are left
+type BarberTVar = TVar Int
+type ChairTVar = TVar Int
+type FreeSeats = MVar Int
+type Acabar = TVar Int
 type ID = Int
 
 customer :: ID -> BarberTVar -> ChairTVar -> MVar Int -> IO()
@@ -21,15 +23,15 @@ customer id barb cadeiras mv = do {
                             if (busy == 1) then retry else return (); --se tiver ocupado fica em busy wait
                             } --o return () serve p nao fazer nada e ir pra threadDelay
                 );
-            threadDelay $ 2000000; --espera o tempo de corte
+            threadDelay waitcut; --espera o tempo de corte
             putStrLn $ "Customer " ++ (show id) ++ " got a haircut! :-D\n"; --cortando o cabelo...
         };
         --x <- takeMVar mv; --dimnui em 1 o numero de clientes atendidos
         --putMVar mv (x-1)
     }
 
-barber :: ID -> BarberTVar -> ChairTVar -> MVar Int -> Int -> IO()
-barber id barb cadeiras mv numeroCadeiras = do {
+barber :: ID -> BarberTVar -> ChairTVar -> MVar Int -> Int -> Acabar -> IO()
+barber id barb cadeiras mv numeroCadeiras acabar = do {
     atomically (   --monad STM
             do {
                 v <- readTVar cadeiras; --ve o numero de cadeiras vazias
@@ -38,7 +40,7 @@ barber id barb cadeiras mv numeroCadeiras = do {
                 else writeTVar barb 1;
                 });
     --monad IO
-    threadDelay 2000000; --cortando o cabelo...
+    threadDelay waitcut; --cortando o cabelo...
     --putStrLn $ "Acabei um corte.";
     x <- takeMVar mv; --diminui em 1 o número de clientes atendidos
     putMVar mv (x-1);
@@ -47,20 +49,15 @@ barber id barb cadeiras mv numeroCadeiras = do {
         writeTVar cadeiras (v+1); --entao tem uma cadeira vazia
         });
     if ((x-1) < 1) --se chegou em 0, acabou o servico
-    then return ()
-    else do {atomically (writeTVar barb 0); barber id barb cadeiras mv numeroCadeiras} --senao, espera ate que complete o numero de clientes atendidos
+    then atomically (writeTVar acabar 1)
+    else do {atomically (writeTVar barb 0); barber id barb cadeiras mv numeroCadeiras acabar} --senao, espera ate que complete o numero de clientes atendidos
 }
 
-waitThreads :: MVar Int -> IO()
-waitThreads mv = do {
-    f <- takeMVar mv;
-    if (f > 0) then
-        do {
-            putMVar mv f;
-            waitThreads mv;
-        }
-    else
-        return ()
+waitThreads :: Acabar -> IO()
+waitThreads acabou = do {
+    v <- atomically $ readTVar acabou;
+    if (v == 1) then return ()
+        else waitThreads acabou;
 }
 
 
@@ -89,8 +86,9 @@ main = do {
     numeroCadeiras <- return (read nchairs :: Int);
     tvarCadeiras <- atomically (newTVar numeroCadeiras);
     tvarBarbeiro <- atomically (newTVar 0);
-    forkIO $ barber 40 tvarBarbeiro tvarCadeiras mvarClientes numeroCadeiras;
+    acabar <- atomically $ newTVar 0;
+    forkIO $ barber 40 tvarBarbeiro tvarCadeiras mvarClientes numeroCadeiras acabar;
     incomingCustomers 1 tvarBarbeiro tvarCadeiras mvarClientes;
-    waitThreads mvarClientes;
+    waitThreads acabar;
     putStrLn $ "I have cut today " ++ (show numeroClientes) ++ " customers! I'm done! zzZZz"
 }
