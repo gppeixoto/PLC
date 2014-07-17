@@ -13,7 +13,7 @@ customer :: ID -> BarberTVar -> ChairTVar -> MVar Int -> IO()
 customer id barb cadeiras mv = do { 
         v <- atomically (readTVar cadeiras); --v contem o numero de cadeiras livres, o numero total de cadeiras é 5
         if (v <= 0) --se n tem mais nenhuma cadeira vazia
-        then putStrLn $ "Customer " ++ (show id) ++ " is leaving! No seats left :-(\n" --sai do barbershop
+        then do{threadDelay 1; putStrLn $ "Customer " ++ (show id) ++ " is leaving! No seats left :-(\n"} --sai do barbershop
         else do { --aqui tem alguma cadeira livre
             --x <- takeMVar mv; --dimnui em 1 o numero de clientes atendidos
             --putMVar mv (x-1);
@@ -50,7 +50,7 @@ barber id barb cadeiras mv numeroCadeiras acabar = do {
         });
     if ((x-1) < 1) --se chegou em 0, acabou o servico
     then atomically (writeTVar acabar 1)
-    else do {atomically (writeTVar barb 0); barber id barb cadeiras mv numeroCadeiras acabar} --senao, espera ate que complete o numero de clientes atendidos
+    else do {atomically (writeTVar barb 0); threadDelay 1; barber id barb cadeiras mv numeroCadeiras acabar} --senao, espera ate que complete o numero de clientes atendidos
 }
 
 waitThreads :: Acabar -> IO()
