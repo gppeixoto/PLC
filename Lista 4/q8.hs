@@ -17,8 +17,8 @@ attend = randomRIO (25000, 100000) :: IO Int
 arrive :: IO Int
 arrive = randomRIO (50000, 500000) :: IO Int
 
-attendant :: Buffer -> Limit -> Current -> TVar [String] -> IO()
-attendant buf lim curr msgs = do {
+attendant :: Id -> Buffer -> Limit -> Current -> TVar [String] -> IO()
+attendant id buf lim curr msgs = do {
     atomically(
         do {
             soFar <- readTVar curr;
@@ -36,7 +36,7 @@ attendant buf lim curr msgs = do {
                             newBuffer <- return $ tail list;
                             writeTVar buf newBuffer; --updates the buffer
                             messages <- readTVar msgs;
-                            novo <- return $ (messages ++ [("Finalmente #" ++ (show client) ++ " foi atendido! zZz")]);
+                            novo <- return $ (messages ++ [("Aluno #" ++ (show client) ++ " foi atendido por atendente #" ++ (show id))]);
                             writeTVar msgs novo;
                         };
                 }
@@ -44,7 +44,7 @@ attendant buf lim curr msgs = do {
         );
     time <- attend;
     threadDelay time; --the attendant takes 25ms to 100ms (randomly determined) to attend a costumer
-    attendant buf lim curr msgs
+    attendant id buf lim curr msgs
 }
 
 putClients :: Int -> Id -> Buffer -> Limit -> Current -> TVar [String] -> IO()
@@ -98,9 +98,9 @@ main = do {
     buf <- atomically $ newTVar [];
     msgs <- atomically $ newTVar [];
     curr <- atomically $ newTVar 0;
-    forkIO $ attendant buf numberClients curr msgs;
-    forkIO $ attendant buf numberClients curr msgs;
-    forkIO $ attendant buf numberClients curr msgs;
+    forkIO $ attendant 101 buf numberClients curr msgs;
+    forkIO $ attendant 202 buf numberClients curr msgs;
+    forkIO $ attendant 303 buf numberClients curr msgs;
     putClients bufferLimit 1 buf numberClients curr msgs;
     waitThreads curr numberClients;
     list <- atomically $ readTVar msgs;
@@ -120,4 +120,9 @@ O fato de usar TVars garante que só uma thread execute por vez (e atomicamente)
 atomically. Dessa forma, temos a garantia de exclusão mútua, uma vez que nunca teremos duas threads
 tentando acessar a mesma região crítica simultaneamente.
 
+-Ausência de starvation (liveness)
+Uma thread nunca irá entrar em starvation porque ela sempre irá terminar, quando a quantidade de clientes
+atendidos chegar ao limite definido pelo usuário. No entanto, não há garantia que todas as três threads atendam
+a mesma quantidade de clientes -ou atendam algum-, no entanto, a thread sempre irá terminar a sua tarefa, independente
+de quantos alunos ela atendeu. 
 -}
