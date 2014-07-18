@@ -13,7 +13,7 @@ customer :: ID -> BarberTVar -> ChairTVar -> MVar Int -> IO()
 customer id barb cadeiras mv = do { 
         v <- atomically (readTVar cadeiras); --v contem o numero de cadeiras livres, o numero total de cadeiras é 5
         if (v <= 0) --se n tem mais nenhuma cadeira vazia
-        then do{threadDelay 1; putStrLn $ "Customer " ++ (show id) ++ " is leaving! No seats left :-(\n"} --sai do barbershop
+        then do{threadDelay 1; putStrLn $ "Customer " ++ (show id) ++ " is leaving! No seats left :-("} --sai do barbershop
         else do { --aqui tem alguma cadeira livre
             --x <- takeMVar mv; --dimnui em 1 o numero de clientes atendidos
             --putMVar mv (x-1);
@@ -24,7 +24,7 @@ customer id barb cadeiras mv = do {
                             } --o return () serve p nao fazer nada e ir pra threadDelay
                 );
             threadDelay waitcut; --espera o tempo de corte
-            putStrLn $ "Customer " ++ (show id) ++ " got a haircut! :-D\n"; --cortando o cabelo...
+            putStrLn $ "Customer " ++ (show id) ++ " got a haircut! :-D"; --cortando o cabelo...
         };
         --x <- takeMVar mv; --dimnui em 1 o numero de clientes atendidos
         --putMVar mv (x-1)
@@ -83,6 +83,7 @@ main = do {
     mvarClientes <- newMVar numeroClientes;
     putStrLn "Input the number of chairs: ";
     nchairs <- getLine;
+    putStrLn "";
     numeroCadeiras <- return (read nchairs :: Int);
     tvarCadeiras <- atomically (newTVar numeroCadeiras);
     tvarBarbeiro <- atomically (newTVar 0);
@@ -90,5 +91,5 @@ main = do {
     forkIO $ barber 40 tvarBarbeiro tvarCadeiras mvarClientes numeroCadeiras acabar;
     incomingCustomers 1 tvarBarbeiro tvarCadeiras mvarClientes;
     waitThreads acabar;
-    putStrLn $ "I have cut today " ++ (show numeroClientes) ++ " customers! I'm done! zzZZz"
+    putStrLn $ "I have cut " ++ (show numeroClientes) ++ " customers today! I'm done!"
 }
