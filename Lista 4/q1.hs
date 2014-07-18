@@ -1,4 +1,3 @@
-    
 import Control.Parallel
 import Control.Concurrent
 import Control.Concurrent.MVar
@@ -111,6 +110,13 @@ main = do {
 }
 
 {-
+---------EXEMPLO DE EXECUÇÃO--------
+C:\Users\...\Lista 4>q1.exe +RTS -N4
+Input the list to be mergeSorted by four threads:
+[10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 2, 3, 4, 5, 6]
+Your sorted list: [1,1,2,2,2,2,3,3,3,3,4,4,4,4,5,5,5,5,6,6,6,6,7,7,7,8,8,8,9,9,9,10,10]
+
+-------------TESTES-----------------
 Versão sequencial:
 *Main> length $ mergeSort [1..500000]
 500000
